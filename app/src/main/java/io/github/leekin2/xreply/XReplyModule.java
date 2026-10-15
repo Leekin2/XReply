@@ -139,7 +139,7 @@ public final class XReplyModule extends XposedModule {
             Object progress = progressField.get(view);
             if (progress instanceof ProgressBar) {
                 ((ProgressBar) progress).setIndeterminateTintList(ColorStateList.valueOf(light ? 0xE6FFFFFF : 0xCC000000));
-                ((ProgressBar) progress).setBackground(circle(light ? 0x40FFFFFF : 0x26000000, 0));
+                ((ProgressBar) progress).setBackground(circle(surface(view.getContext(), light, 0x40FFFFFF, 0x33000000, 0x26000000), 0));
             }
             return result;
         });
@@ -186,8 +186,8 @@ public final class XReplyModule extends XposedModule {
         GradientDrawable box = (GradientDrawable) ((GradientDrawable) background).mutate();
         float dp = context.getResources().getDisplayMetrics().density;
         box.setCornerRadius(100 * dp);
-        box.setColor(light ? 0x1AFFFFFF : 0x0F000000);
-        box.setStroke(Math.round(2 * dp), light ? 0x40FFFFFF : 0x29000000);
+        box.setColor(surface(context, light, 0x1AFFFFFF, 0x26000000, 0x0F000000));
+        box.setStroke(Math.round(2 * dp), surface(context, light, 0x40FFFFFF, 0x66FFFFFF, 0x29000000));
     }
 
     /** True when the notification around {@code view} draws light (white) text. */
@@ -235,12 +235,22 @@ public final class XReplyModule extends XposedModule {
         return icon;
     }
 
-    private static StateListDrawable sendBackground(Context context, boolean night) {
+    private static StateListDrawable sendBackground(Context context, boolean light) {
         int size = Math.round(40 * context.getResources().getDisplayMetrics().density);
         StateListDrawable states = new StateListDrawable();
         states.addState(new int[] {android.R.attr.state_enabled}, circle(SEND_BLUE, size));
-        states.addState(new int[0], circle(night ? 0x1FFFFFFF : 0x14000000, size));
+        states.addState(new int[0], circle(surface(context, light, 0x1FFFFFFF, 0x33000000, 0x14000000), size));
         return states;
+    }
+
+    /**
+     * Fill behind light or dark text. White text in the dark theme sits on a faint white veil.
+     * The lock screen keeps white text in the light theme too, on a light card where a white veil
+     * vanishes; there a dark veil keeps it readable.
+     */
+    private static int surface(Context context, boolean lightInk, int onDark, int onLight, int darkInk) {
+        if (!lightInk) return darkInk;
+        return night(context) ? onDark : onLight;
     }
 
     /** Centre the box and the send button on one line, the button as tall as the box. */
@@ -543,7 +553,7 @@ public final class XReplyModule extends XposedModule {
         boolean light = title instanceof TextView
                 ? lightInk(((TextView) title).getCurrentTextColor())
                 : lightInk(systemUi.getColor(text));
-        int chipColor = light ? 0x26FFFFFF : 0x17000000;
+        int chipColor = surface(systemUi, light, 0x26FFFFFF, 0x33000000, 0x17000000);
         int textColor = light ? 0xE6FFFFFF : 0xCC000000;
         java.util.List<Button> buttons = new java.util.ArrayList<>();
         for (int i = 0; i < list.getChildCount(); i++) {
