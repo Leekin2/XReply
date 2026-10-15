@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.Color;
 import android.graphics.Outline;
 import android.graphics.Path;
 import android.graphics.drawable.Drawable;
@@ -26,6 +27,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import io.github.libxposed.api.XposedInterface;
 import io.github.libxposed.api.XposedModule;
 import io.github.libxposed.api.XposedModuleInterface;
@@ -101,6 +103,8 @@ public final class XReplyModule extends XposedModule {
         Field sendField = remoteInputView.getDeclaredField("mSendButton");
         Field progressField = remoteInputView.getDeclaredField("mProgressBar");
         progressField.setAccessible(true);
+        Field editField = remoteInputView.getDeclaredField("mEditText");
+        editField.setAccessible(true);
         Field miuiBgField = Class.forName(INJECTOR, false, loader).getDeclaredField("miuiContentBackground");
         for (Field f : new Field[] {injectorField, contentField, sendField, miuiBgField}) f.setAccessible(true);
 
@@ -112,16 +116,31 @@ public final class XReplyModule extends XposedModule {
             Object result = chain.proceed();
             View view = (View) chain.getThisObject();
             view.setBackground(null);
-            ColorStateList ink = ColorStateList.valueOf(night(view.getContext()) ? 0xE6FFFFFF : 0xCC000000);
+            // HyperOS picks white or black text per notification (lock screen, wallpaper colours),
+            // which need not match the system theme; follow the notification's own text.
+            boolean light = lightInk(view, night(view.getContext()));
+            Object injector = injectorField.get(view);
+            if (injector != null) reshapeBox(miuiBgField.get(injector), view.getContext(), light);
+            View content = (View) contentField.get(view);
+            if (content != null) reshapeBox(content.getBackground(), view.getContext(), light);
+            Object edit = editField.get(view);
+            if (edit instanceof TextView) {
+                ((TextView) edit).setTextColor(light ? 0xE6FFFFFF : 0xE6000000);
+                ((TextView) edit).setHintTextColor(light ? 0x99FFFFFF : 0x8C000000);
+            }
             Object send = sendField.get(view);
             if (send instanceof ImageView) {
                 // Empty box: dim icon on the frosted grey circle; text typed: white on blue.
-                int dim = night(view.getContext()) ? 0x80FFFFFF : 0x73000000;
+                ((ImageView) send).setBackground(sendBackground(view.getContext(), light));
                 ((ImageView) send).setImageTintList(new ColorStateList(
-                        new int[][] {{android.R.attr.state_enabled}, {}}, new int[] {0xFFFFFFFF, dim}));
+                        new int[][] {{android.R.attr.state_enabled}, {}},
+                        new int[] {0xFFFFFFFF, light ? 0x80FFFFFF : 0x73000000}));
             }
             Object progress = progressField.get(view);
-            if (progress instanceof ProgressBar) ((ProgressBar) progress).setIndeterminateTintList(ink);
+            if (progress instanceof ProgressBar) {
+                ((ProgressBar) progress).setIndeterminateTintList(ColorStateList.valueOf(light ? 0xE6FFFFFF : 0xCC000000));
+                ((ProgressBar) progress).setBackground(circle(light ? 0x40FFFFFF : 0x26000000, 0));
+            }
             return result;
         });
 
@@ -132,9 +151,9 @@ public final class XReplyModule extends XposedModule {
             View view = (View) chain.getThisObject();
             Context context = view.getContext();
             Object injector = injectorField.get(view);
-            if (injector != null) reshapeBox(miuiBgField.get(injector), context);
+            if (injector != null) reshapeBox(miuiBgField.get(injector), context, night(context));
             View content = (View) contentField.get(view);
-            if (content != null) reshapeBox(content.getBackground(), context);
+            if (content != null) reshapeBox(content.getBackground(), context, night(context));
             View send = (View) sendField.get(view);
             View progress = (View) progressField.get(view);
             if (send instanceof ImageView) {
@@ -142,7 +161,7 @@ public final class XReplyModule extends XposedModule {
                 ((ImageView) send).setScaleType(ImageView.ScaleType.CENTER);
             }
             if (send != null) {
-                send.setBackground(sendBackground(context));
+                send.setBackground(sendBackground(context, night(context)));
                 frost(send, context);
             }
             // While sending, the spinner turns inside the same frosted circle instead of a bare
@@ -162,12 +181,34 @@ public final class XReplyModule extends XposedModule {
                 == Configuration.UI_MODE_NIGHT_YES;
     }
 
-    private static void reshapeBox(Object background, Context context) {
+    private static void reshapeBox(Object background, Context context, boolean light) {
         if (!(background instanceof GradientDrawable)) return;
         GradientDrawable box = (GradientDrawable) ((GradientDrawable) background).mutate();
         float dp = context.getResources().getDisplayMetrics().density;
         box.setCornerRadius(100 * dp);
-        box.setStroke(Math.round(2 * dp), night(context) ? 0x33FFFFFF : 0x29000000);
+        box.setColor(light ? 0x1AFFFFFF : 0x0F000000);
+        box.setStroke(Math.round(2 * dp), light ? 0x40FFFFFF : 0x29000000);
+    }
+
+    /** True when the notification around {@code view} draws light (white) text. */
+    private static boolean lightInk(View view, boolean fallback) {
+        View title = findTitle(view);
+        return title instanceof TextView ? lightInk(((TextView) title).getCurrentTextColor()) : fallback;
+    }
+
+    private static boolean lightInk(int color) {
+        return Color.luminance(color | 0xFF000000) > 0.5f;
+    }
+
+    /** The notification title, searched outward from {@code from}. */
+    private static View findTitle(View from) {
+        View v = from;
+        for (int i = 0; i < 8 && v != null; i++) {
+            View title = v.findViewById(android.R.id.title);
+            if (title != null) return title;
+            v = v.getParent() instanceof View ? (View) v.getParent() : null;
+        }
+        return null;
     }
 
     /** Xiaomi's own send blue (notification_reply_send_bg_enabled). */
@@ -194,8 +235,7 @@ public final class XReplyModule extends XposedModule {
         return icon;
     }
 
-    private static StateListDrawable sendBackground(Context context) {
-        boolean night = night(context);
+    private static StateListDrawable sendBackground(Context context, boolean night) {
         int size = Math.round(40 * context.getResources().getDisplayMetrics().density);
         StateListDrawable states = new StateListDrawable();
         states.addState(new int[] {android.R.attr.state_enabled}, circle(SEND_BLUE, size));
@@ -498,6 +538,13 @@ public final class XReplyModule extends XposedModule {
         int pad = res.getIdentifier("notification_action_padding", "dimen", SYSTEMUI);
         if (bg == 0 || text == 0) return;
         float dp = res.getDisplayMetrics().density;
+        // Same as the reply box: follow the notification's own text colour, not the theme.
+        View title = findTitle(list);
+        boolean light = title instanceof TextView
+                ? lightInk(((TextView) title).getCurrentTextColor())
+                : lightInk(systemUi.getColor(text));
+        int chipColor = light ? 0x26FFFFFF : 0x17000000;
+        int textColor = light ? 0xE6FFFFFF : 0xCC000000;
         java.util.List<Button> buttons = new java.util.ArrayList<>();
         for (int i = 0; i < list.getChildCount(); i++) {
             if (list.getChildAt(i) instanceof Button && list.getChildAt(i).getVisibility() != View.GONE) {
@@ -508,10 +555,10 @@ public final class XReplyModule extends XposedModule {
         for (Button button : buttons) {
             GradientDrawable chip = new GradientDrawable();
             chip.setCornerRadius(20 * dp);
-            chip.setColor(systemUi.getColor(bg));
+            chip.setColor(chipColor);
             button.setBackground(chip);
             button.setBackgroundTintList(null);
-            button.setTextColor(systemUi.getColor(text));
+            button.setTextColor(textColor);
             if (size != 0) button.setTextSize(TypedValue.COMPLEX_UNIT_PX, res.getDimension(size));
             button.setMinHeight(0);
             button.setMinimumHeight(0);
