@@ -1,0 +1,9 @@
+build/
+app/build/
+.gradle/
+local.properties
+*.apk
+*.zip
+module/
+pack-module.py
+notes-*.md

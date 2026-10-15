@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">XReply</string>
+    <string name="module_description">HyperOS: replying from a notification always uses Xiaomi\'s own reply box and buttons, also for Telegram, WhatsApp and other messaging apps. Scope: System UI.</string>
+</resources>

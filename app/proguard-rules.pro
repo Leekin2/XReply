@@ -1,0 +1,5 @@
+-keep class io.github.leekin2.xreply.XReplyModule { <init>(); public *; }
+-dontwarn io.github.libxposed.**
+-keep class io.github.libxposed.service.** { *; }
+-keep class io.github.libxposed.interfaces.** { *; }
+-keep class io.github.leekin2.xreply.ScopeApp { *; }
