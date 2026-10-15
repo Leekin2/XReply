@@ -17,7 +17,7 @@ XReply gives every app the HyperOS look and fixes the reply.
 - ✅ **HyperOS action buttons:** "Reply", "Mark as read" and the others use Xiaomi's grey buttons, lined up with the text, also when there are three of them.
 - ✅ **Tidy pop-ups:** the floating-window handle no longer touches the buttons or the reply box.
 - ✅ **Quieter details:** the message count badge stays grey instead of the app colour, and the bubble button is hidden.
-- Light and dark theme.
+- Readable in the light and dark theme, also on the lock screen: colours follow the notification's own text colour.
 
 ## Screenshots
 | Xiaomi buttons | Typing a reply |
@@ -65,7 +65,7 @@ XReply her uygulamaya HyperOS görünümünü verir ve yanıtı düzeltir.
 - ✅ **HyperOS butonları:** "Yanıtla", "Okundu olarak işaretle" ve diğerleri Xiaomi'nin gri butonlarıyla, metinle aynı hizada; üç buton olduğunda da.
 - ✅ **Düzgün açılır bildirimler:** kayan pencere çizgisi artık butonlara ve yanıt kutusuna değmez.
 - ✅ **Daha sade ayrıntılar:** mesaj sayısı rozeti uygulama rengine boyanmaz, gri kalır; baloncuk butonu gizlenir.
-- Açık ve koyu tema.
+- Açık ve koyu temada, kilit ekranında da okunur: renkler bildirimin kendi yazı rengine göre seçilir.
 
 ### Gereksinimler
 - HyperOS 4 Çin ROM'lu (Android 17) bir Xiaomi telefon
